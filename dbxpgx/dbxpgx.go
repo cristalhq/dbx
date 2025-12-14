@@ -2,10 +2,48 @@ package dbxpgx
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cristalhq/dbx"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+type Config struct {
+	Host     string
+	Port     string
+	Username string
+	Password string
+	Database string
+
+	// TODO: add more fields supported by [pgxpool.ParseConfig]
+}
+
+func (cfg Config) AsConnStr() string {
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s database=%s sslmode=disable",
+		cfg.Host,
+		cfg.Port,
+		cfg.Username,
+		cfg.Password,
+		cfg.Database,
+	)
+	return dsn
+}
+
+func New(ctx context.Context, cfg Config) (dbx.Client, error) {
+	connStr := cfg.AsConnStr()
+
+	config, err := pgxpool.ParseConfig(connStr)
+	if err != nil {
+		return nil, err
+	}
+
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	if err != nil {
+		return nil, fmt.Errorf("pgxpool.NewWithConfig: %w", err)
+	}
+	return WrapPool(pool), nil
+}
 
 func WrapPool(pool *pgxpool.Pool) dbx.Client {
 	return &wrapClient{pool: pool}
